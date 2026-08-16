@@ -111,7 +111,11 @@ for ip in ${deploy_iplist[@]};
 do
   private_key="cert/node_"${idx}".key.pri"
   cert="cert/cert_"${idx}".cert"
-  run_one_cmd "nohup ./${server_bin} server.config ${private_key} ${cert}  > ${server_bin}.log 2>&1 &" &
+  benchmark_env=""
+  if [[ -n ${FAIRDAG_CLIENT_RATE} && ${idx} -gt $((${#iplist[@]}-${client_num})) ]]; then
+    benchmark_env="FAIRDAG_CLIENT_RATE=${FAIRDAG_CLIENT_RATE} FAIRDAG_SEND_DURATION=${FAIRDAG_SEND_DURATION} FAIRDAG_BURST_HZ=${FAIRDAG_BURST_HZ} FAIRDAG_MAX_BATCH_DELAY_MS=${FAIRDAG_MAX_BATCH_DELAY_MS}"
+  fi
+  run_one_cmd "nohup env ${benchmark_env} ./${server_bin} server.config ${private_key} ${cert}  > ${server_bin}.log 2>&1 &" &
   ((count++))
   ((idx++))
 done
@@ -137,4 +141,3 @@ do
 done
 
 echo "Servers are running....."
-

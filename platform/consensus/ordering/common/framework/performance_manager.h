@@ -26,6 +26,7 @@
 #pragma once
 
 #include <future>
+#include <unordered_map>
 
 #include "platform/config/resdb_config.h"
 #include "platform/consensus/ordering/common/framework/transaction_utils.h"
@@ -67,6 +68,7 @@ class PerformanceManager {
   };
   int DoBatch(const std::vector<std::unique_ptr<QueueItem>>& batch_req);
   int BatchProposeMsg();
+  void GenerateRequestsAtRate();
   int GetPrimary();
   std::unique_ptr<Request> GenerateUserRequest();
 
@@ -78,6 +80,7 @@ class PerformanceManager {
  private:
   LockFreeQueue<QueueItem> batch_queue_;
   std::thread user_req_thread_[16];
+  std::thread generator_thread_;
   std::atomic<bool> stop_;
   Stats* global_stats_;
   std::atomic<int> send_num_;
@@ -97,6 +100,17 @@ class PerformanceManager {
   int primary_;
   std::atomic<int> local_id_;
   std::atomic<int> sum_;
+  bool controlled_mode_;
+  uint64_t target_rate_;
+  uint64_t send_duration_sec_;
+  uint64_t burst_hz_;
+  uint64_t max_batch_delay_ms_;
+  std::atomic<uint64_t> generated_transactions_;
+  std::atomic<uint64_t> offered_transactions_;
+  std::atomic<bool> generation_done_;
+  std::atomic<bool> summary_logged_;
+  std::mutex send_time_mutex_;
+  std::unordered_map<int64_t, uint64_t> send_time_by_batch_;
 };
 
 }  // namespace common

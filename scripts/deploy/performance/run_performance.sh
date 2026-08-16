@@ -10,6 +10,8 @@ server_name=`echo "$server" | awk -F':' '{print $NF}'`
 server_bin=${server_name}
 user=ubuntu
 home_path="/home/ubuntu"
+result_dir=${FAIRDAG_RESULT_DIR:-$PWD}
+mkdir -p ${result_dir}
 
 for ip in ${iplist[@]};
 do
@@ -31,7 +33,7 @@ echo "get cofigfile:"$config_file
 ${BAZEL_WORKSPACE_PATH}/bazel-bin/benchmark/protocols/pbft/kv_service_tools $config_file
 done
 
-sleep 60
+sleep ${FAIRDAG_TOTAL_DURATION:-60}
 
 echo "benchmark done"
 for ip in ${iplist[@]};
@@ -48,17 +50,17 @@ for ip in ${iplist[@]};
 do
   i=`expr $i + 1`
   echo "scp -i ${key} ${user}@${ip}:${home_path}/${server_bin}.log ./${ip}_log"
-  `scp -i ${key} ${user}@${ip}:${home_path}/${server_bin}.log result_${i}_log` &
-  `scp -i ${key} ${user}@${ip}:${home_path}/local_ordering.txt local_ordering_${i}` &
-  `scp -i ${key} ${user}@${ip}:${home_path}/final_ordering.txt final_ordering_${i}` &
+  `scp -i ${key} ${user}@${ip}:${home_path}/${server_bin}.log ${result_dir}/result_${i}_log` &
+  `scp -i ${key} ${user}@${ip}:${home_path}/local_ordering.txt ${result_dir}/local_ordering_${i}` &
+  `scp -i ${key} ${user}@${ip}:${home_path}/final_ordering.txt ${result_dir}/final_ordering_${i}` &
 done
 
 wait
 
-python3 performance/calculate_result.py `ls result_*_log` > results.log
+python3 performance/calculate_result.py `ls ${result_dir}/result_*_log` > ${result_dir}/results.log
 
 # rm -rf result_*_log
 echo "save result to results.log"
-cat results.log
+cat ${result_dir}/results.log
 cat $TEMPLATE_PATH
 echo $TEMPLATE_PATH
