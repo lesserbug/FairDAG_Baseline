@@ -1,0 +1,33 @@
+{
+  "project": "FairDAG",
+  "instance_type": "t3.large",
+  "key_name": "fairdag",
+  "controller_private_ip": "10.10.1.100",
+  "regions": [
+    {
+      "name": "us-east-1",
+      "subnet_id": "subnet-REPLACE_ME",
+      "security_group_id": "sg-REPLACE_ME"
+    },
+    {
+      "name": "eu-north-1",
+      "subnet_id": "subnet-REPLACE_ME",
+      "security_group_id": "sg-REPLACE_ME"
+    },
+    {
+      "name": "ap-southeast-2",
+      "subnet_id": "subnet-REPLACE_ME",
+      "security_group_id": "sg-REPLACE_ME"
+    },
+    {
+      "name": "us-west-1",
+      "subnet_id": "subnet-REPLACE_ME",
+      "security_group_id": "sg-REPLACE_ME"
+    },
+    {
+      "name": "ap-northeast-1",
+      "subnet_id": "subnet-REPLACE_ME",
+      "security_group_id": "sg-REPLACE_ME"
+    }
+  ]
+}
