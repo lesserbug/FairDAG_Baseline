@@ -72,6 +72,10 @@ PerformanceManager::PerformanceManager(
   const char* duration = std::getenv("FAIRDAG_SEND_DURATION");
   send_duration_sec_ = duration == nullptr ? 60 : std::strtoull(duration, nullptr, 10);
 
+  const char* warmup = std::getenv("FAIRDAG_WARMUP_DURATION");
+  warmup_duration_sec_ =
+      warmup == nullptr ? 0 : std::strtoull(warmup, nullptr, 10);
+
   const char* burst_hz = std::getenv("FAIRDAG_BURST_HZ");
   burst_hz_ = burst_hz == nullptr ? 20 : std::strtoull(burst_hz, nullptr, 10);
 
@@ -123,6 +127,8 @@ int PerformanceManager::StartEval() {
     // for (int i = 0; i < 60000000000; ++i) {
     std::unique_ptr<QueueItem> queue_item = std::make_unique<QueueItem>();
     queue_item->context = nullptr;
+    queue_item->create_time = GetCurrentTime();
+    queue_item->measure_latency = true;
     queue_item->user_request = GenerateUserRequest();
     batch_queue_.Push(std::move(queue_item));
     if (i == 200000) {
@@ -150,6 +156,9 @@ void PerformanceManager::GenerateRequestsAtRate() {
     for (; generated < target; ++generated) {
       std::unique_ptr<QueueItem> queue_item = std::make_unique<QueueItem>();
       queue_item->context = nullptr;
+      queue_item->create_time = GetCurrentTime();
+      queue_item->measure_latency =
+          tick > warmup_duration_sec_ * burst_hz_;
       queue_item->user_request = GenerateUserRequest();
       batch_queue_.Push(std::move(queue_item));
     }
@@ -232,17 +241,28 @@ CollectorResultCode PerformanceManager::AddResponseMsg(
 
 void PerformanceManager::SendResponseToClient(
     const BatchUserResponse& batch_response) {
-  uint64_t create_time = batch_response.createtime();
+  const uint64_t response_time = GetCurrentTime();
   if (controlled_mode_) {
-    std::lock_guard<std::mutex> lock(send_time_mutex_);
-    auto it = send_time_by_batch_.find(batch_response.local_id());
-    if (it != send_time_by_batch_.end()) {
-      create_time = it->second;
-      send_time_by_batch_.erase(it);
+    std::lock_guard<std::mutex> lock(batch_timing_mutex_);
+    auto it = batch_timing_by_batch_.find(batch_response.local_id());
+    if (it != batch_timing_by_batch_.end()) {
+      const uint64_t batch_start = std::get<0>(it->second);
+      const uint64_t pre_batch_latency = std::get<1>(it->second);
+      const uint64_t transaction_count = std::get<2>(it->second);
+      const uint64_t total_latency =
+          pre_batch_latency +
+          (response_time - batch_start) * transaction_count;
+      if (transaction_count > 0) {
+        global_stats_->AddLatency(total_latency, transaction_count);
+      }
+      batch_timing_by_batch_.erase(it);
+      send_num_--;
+      return;
     }
   }
+  uint64_t create_time = batch_response.createtime();
   if (create_time > 0) {
-    uint64_t run_time = GetCurrentTime() - create_time;
+    uint64_t run_time = response_time - create_time;
     //LOG(ERROR)<<"receive current:"<<GetCurrentTime()<<" create time:"<<create_time<<" run time:"<<run_time<<" local id:"<<batch_response.local_id();
     global_stats_->AddLatency(run_time);
   } else {
@@ -315,6 +335,16 @@ int PerformanceManager::BatchProposeMsg() {
 
 int PerformanceManager::DoBatch(
     const std::vector<std::unique_ptr<QueueItem>>& batch_req) {
+  const uint64_t batch_start = GetCurrentTime();
+  uint64_t pre_batch_latency = 0;
+  uint64_t measured_transactions = 0;
+  for (const auto& item : batch_req) {
+    if (item->measure_latency) {
+      pre_batch_latency += batch_start - item->create_time;
+      measured_transactions++;
+    }
+  }
+
   auto new_request = comm::NewRequest(Request::TYPE_NEW_TXNS, Request(),
                                       config_.GetSelfInfo().id());
   if (new_request == nullptr) {
@@ -353,8 +383,9 @@ int PerformanceManager::DoBatch(
   new_request->set_user_seq(batch_request.local_id());
 
   if (controlled_mode_) {
-    std::lock_guard<std::mutex> lock(send_time_mutex_);
-    send_time_by_batch_[batch_request.local_id()] = GetCurrentTime();
+    std::lock_guard<std::mutex> lock(batch_timing_mutex_);
+    batch_timing_by_batch_[batch_request.local_id()] = std::make_tuple(
+        batch_start, pre_batch_latency, measured_transactions);
   }
   SendMessage(*new_request);
 

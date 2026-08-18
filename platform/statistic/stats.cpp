@@ -395,7 +395,8 @@ void Stats::MonitorGlobal() {
       LOG(ERROR) << "  req client latency:"
                  << static_cast<double>(run_req_run_time -
                                         last_run_req_run_time) /
-                        (run_req_num - last_run_req_num) / 1000000.0;
+                        (run_req_num - last_run_req_num) / 1000000.0
+                 << " samples:" << run_req_num - last_run_req_num;
     }
 
     last_seq_fail = seq_fail;
@@ -575,8 +576,8 @@ void Stats::ConsumeTransactions(int num) {
 
 void Stats::SeqGap(uint64_t seq_gap) { seq_gap_ = seq_gap; }
 
-void Stats::AddLatency(uint64_t run_time) {
-  run_req_num_++;
+void Stats::AddLatency(uint64_t run_time, uint64_t num) {
+  run_req_num_ += num;
   run_req_run_time_ += run_time;
 }
 

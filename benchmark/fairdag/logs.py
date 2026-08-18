@@ -30,7 +30,8 @@ for run_dir in sorted(log_root.iterdir()):
         if measured:
             replica_averages.append(statistics.mean(measured))
 
-    client_latencies = []
+    client_latency_sum = 0
+    client_latency_samples = 0
     offered_transactions = 0
     offered_reports = 0
     for index in range(
@@ -40,11 +41,14 @@ for run_dir in sorted(log_root.iterdir()):
         log_path = run_dir / f"result_{index}_log"
         text = log_path.read_text(errors="replace")
         values = [
-            float(value)
-            for value in re.findall(r"req client latency:([0-9.eE+-]+)", text)
+            (float(latency), int(samples))
+            for latency, samples in re.findall(
+                r"req client latency:([0-9.eE+-]+) samples:(\d+)", text
+            )
         ]
-        start = warmup_windows
-        client_latencies.extend(values[start : start + measurement_windows])
+        for latency, samples in values:
+            client_latency_sum += latency * samples
+            client_latency_samples += samples
         offered = re.findall(r"offered_transactions:(\d+)", text)
         if offered:
             offered_transactions += int(offered[-1])
@@ -61,7 +65,9 @@ for run_dir in sorted(log_root.iterdir()):
             statistics.median(replica_averages) if replica_averages else 0
         ),
         "latency_ms": (
-            statistics.mean(client_latencies) * 1000 if client_latencies else None
+            client_latency_sum / client_latency_samples * 1000
+            if client_latency_samples
+            else None
         ),
     }
     with open(run_dir / "summary.json", "w", encoding="utf-8") as file:

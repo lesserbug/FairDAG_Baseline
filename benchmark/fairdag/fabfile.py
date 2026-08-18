@@ -392,6 +392,7 @@ def remote(
                 environment["USE_BAZEL_VERSION"] = "5.0.0"
                 environment["FAIRDAG_CLIENT_RATE"] = str(client_rate)
                 environment["FAIRDAG_SEND_DURATION"] = str(warmup + duration)
+                environment["FAIRDAG_WARMUP_DURATION"] = str(warmup)
                 environment["FAIRDAG_TOTAL_DURATION"] = str(
                     warmup + duration + drain_duration
                 )

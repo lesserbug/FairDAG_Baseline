@@ -32,7 +32,7 @@ class Stats {
 
   void Stop();
 
-  void AddLatency(uint64_t run_time);
+  void AddLatency(uint64_t run_time, uint64_t num = 1);
   void AddQueuingLatency(uint64_t run_time);
   void AddRoundLatency(uint64_t run_time);
   void AddCommitLatency(uint64_t run_time);
