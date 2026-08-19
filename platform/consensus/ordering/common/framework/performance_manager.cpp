@@ -288,7 +288,7 @@ int PerformanceManager::BatchProposeMsg() {
   bool start = false;
   auto batch_start = std::chrono::steady_clock::now();
   while (!stop_) {
-    if (send_num_ > config_.GetMaxProcessTxn()) {
+    if (!controlled_mode_ && send_num_ > config_.GetMaxProcessTxn()) {
       // LOG(ERROR)<<"wait send num:"<<send_num_;
       usleep(1000);
       continue;
