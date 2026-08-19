@@ -79,6 +79,7 @@ with open(log_root / "results.csv", "w", newline="", encoding="utf-8") as file:
         "variant",
         "nodes",
         "clients",
+        "tx_size",
         "configured_input_rate",
         "actual_offered_rate",
         "output_tps",

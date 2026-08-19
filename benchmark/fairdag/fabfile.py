@@ -317,6 +317,7 @@ def remote(
     duration=60,
     warmup=15,
     drain_duration=30,
+    tx_size=512,
     runs=3,
 ):
     with open(inventory, encoding="utf-8") as file:
@@ -328,6 +329,7 @@ def remote(
     duration = int(duration)
     warmup = int(warmup)
     drain_duration = int(drain_duration)
+    tx_size = int(tx_size)
     runs = int(runs)
     script = {
         "ab": "performance/fair_performance.sh",
@@ -367,6 +369,7 @@ def remote(
                             "warmup": warmup,
                             "duration": duration,
                             "drain_duration": drain_duration,
+                            "tx_size": tx_size,
                             "replicas": replicas,
                             "client_hosts": client_hosts,
                         },
@@ -398,6 +401,7 @@ def remote(
                 )
                 environment["FAIRDAG_BURST_HZ"] = "20"
                 environment["FAIRDAG_MAX_BATCH_DELAY_MS"] = "200"
+                environment["FAIRDAG_TX_SIZE"] = str(tx_size)
                 environment["FAIRDAG_RESULT_DIR"] = str(run_dir)
 
                 try:
