@@ -26,6 +26,9 @@
 #pragma once
 
 #include <future>
+#include <map>
+#include <set>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 
@@ -97,7 +100,8 @@ class PerformanceManager {
   std::atomic<bool> eval_started_;
   std::atomic<int> fail_num_;
   static const int response_set_size_ = 6000000;
-  std::map<int64_t, int> response_[response_set_size_];
+  std::map<int64_t, std::map<std::string, std::set<int32_t>>>
+      response_[response_set_size_];
   std::mutex response_lock_[response_set_size_];
   int id_;
   int primary_;

@@ -214,21 +214,30 @@ CollectorResultCode PerformanceManager::AddResponseMsg(
   }
 
   uint64_t seq = batch_response->local_id();
+  BatchUserResponse response_values;
+  for (const auto& response : batch_response->response()) {
+    response_values.add_response(response);
+  }
+  std::string matching_response;
+  response_values.SerializeToString(&matching_response);
   // LOG(ERROR)<<"receive seq:"<<seq;
 
   bool done = false;
   {
     int idx = seq % response_set_size_;
     std::unique_lock<std::mutex> lk(response_lock_[idx]);
-    if (response_[idx].find(seq) == response_[idx].end()) {
+    auto pending_response = response_[idx].find(seq);
+    if (pending_response == response_[idx].end()) {
       //LOG(ERROR)<<"has done local seq:"<<seq<<" global seq:"<<request->seq();
       return CollectorResultCode::OK;
     }
-    response_[idx][seq]++;
-    // LOG(ERROR)<<"get seq :"<<request->seq()<<" local id:"<<seq<<" num:"<<response_[idx][seq]<<" send:"<<send_num_;
-    if (response_[idx][seq] >= config_.GetMinClientReceiveNum()) {
-      //LOG(ERROR)<<"get seq :"<<request->seq()<<" local id:"<<seq<<" num:"<<response_[idx][seq]<<" done:"<<send_num_;
-      response_[idx].erase(response_[idx].find(seq));
+    auto& matching_senders = pending_response->second[matching_response];
+    matching_senders.insert(request->sender_id());
+    // LOG(ERROR)<<"get seq :"<<request->seq()<<" local id:"<<seq<<" num:"<<matching_senders.size()<<" send:"<<send_num_;
+    if (matching_senders.size() >=
+        static_cast<size_t>(config_.GetMinClientReceiveNum())) {
+      //LOG(ERROR)<<"get seq :"<<request->seq()<<" local id:"<<seq<<" num:"<<matching_senders.size()<<" done:"<<send_num_;
+      response_[idx].erase(pending_response);
       done = true;
     }
   }
@@ -363,7 +372,9 @@ int PerformanceManager::DoBatch(
   {
     int idx = batch_request.local_id() % response_set_size_;
     std::unique_lock<std::mutex> lk(response_lock_[idx]);
-    response_[idx][batch_request.local_id()]++;
+    response_[idx].emplace(
+        batch_request.local_id(),
+        std::map<std::string, std::set<int32_t>>());
   }
 
   batch_request.set_proxy_id(config_.GetSelfInfo().id());
