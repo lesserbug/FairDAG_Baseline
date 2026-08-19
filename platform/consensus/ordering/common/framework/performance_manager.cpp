@@ -256,10 +256,8 @@ void PerformanceManager::SendResponseToClient(
     auto it = batch_timing_by_batch_.find(batch_response.local_id());
     if (it != batch_timing_by_batch_.end()) {
       const uint64_t batch_start = std::get<0>(it->second);
-      const uint64_t pre_batch_latency = std::get<1>(it->second);
       const uint64_t transaction_count = std::get<2>(it->second);
       const uint64_t total_latency =
-          pre_batch_latency +
           (response_time - batch_start) * transaction_count;
       if (transaction_count > 0) {
         global_stats_->AddLatency(total_latency, transaction_count);
@@ -344,12 +342,9 @@ int PerformanceManager::BatchProposeMsg() {
 
 int PerformanceManager::DoBatch(
     const std::vector<std::unique_ptr<QueueItem>>& batch_req) {
-  const uint64_t batch_start = GetCurrentTime();
-  uint64_t pre_batch_latency = 0;
   uint64_t measured_transactions = 0;
   for (const auto& item : batch_req) {
     if (item->measure_latency) {
-      pre_batch_latency += batch_start - item->create_time;
       measured_transactions++;
     }
   }
@@ -394,9 +389,10 @@ int PerformanceManager::DoBatch(
   new_request->set_user_seq(batch_request.local_id());
 
   if (controlled_mode_) {
+    const uint64_t batch_start = GetCurrentTime();
     std::lock_guard<std::mutex> lock(batch_timing_mutex_);
     batch_timing_by_batch_[batch_request.local_id()] = std::make_tuple(
-        batch_start, pre_batch_latency, measured_transactions);
+        batch_start, 0, measured_transactions);
   }
   SendMessage(*new_request);
 
