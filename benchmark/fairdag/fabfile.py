@@ -334,6 +334,7 @@ def remote(
     script = {
         "ab": "performance/fair_performance.sh",
         "rl": "performance/fairrl_performance.sh",
+        "tusk": "performance/tusk_performance.sh",
     }[variant]
 
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
